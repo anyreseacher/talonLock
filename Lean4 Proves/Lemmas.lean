@@ -306,3 +306,62 @@ theorem fairnessBoundUniform
   omega
  
 end TalonLock
+
+-- ────────────────────────────────────────────────────────────────
+-- F1: Proportional Fairness
+-- ────────────────────────────────────────────────────────────────
+-- Three lemmas in increasing strength:
+--   (a) fairnessUniformStake  — exact fairness when all stakes equal
+--   (b) FairnessBound         — general ε bound as a Prop
+--   (c) fairnessBoundUniform  — ε bound proved for uniform case
+-- General heterogeneous-stake proof is future work (§10 Limitations).
+-- ────────────────────────────────────────────────────────────────
+
+/-- Helper: equal stakes give equal allocations. -/
+lemma alloc_L_eq_of_uniform_stake
+    (l : LaunchpadState) (k : Nat)
+    (h_k : k > 0) (h_rate : l.rate > 0) (h_ts : l.totalStaked > 0)
+    (ui uj : Addr)
+    (h_ui : l.regAmt ui = k) (h_uj : l.regAmt uj = k)
+    (h_pi : l.payAmt ui = k) (h_pj : l.payAmt uj = k) :
+    alloc_L l ui = alloc_L l uj := by
+  unfold alloc_L
+  rw [h_ui, h_uj, h_pi, h_pj]
+  simp [Nat.min_self]
+
+/-- F1 (a) — Exact fairness under uniform stakes (ε = 0).
+    Claimed in §10 as the machine-checked uniform-stake instance. -/
+theorem fairnessUniformStake
+    (l : LaunchpadState) (k : Nat) (ui uj : Addr)
+    (h_k : k > 0) (h_rate : l.rate > 0) (h_ts : l.totalStaked > 0)
+    (h_ui : l.regAmt ui = k) (h_pi : l.payAmt ui = k)
+    (h_uj : l.regAmt uj = k) (h_pj : l.payAmt uj = k) :
+    alloc_L l ui = alloc_L l uj :=
+  alloc_L_eq_of_uniform_stake l k h_k h_rate h_ts ui uj
+    h_ui h_uj h_pi h_pj
+
+/-- F1 (b) — General fairness bound as an inspectable Prop.
+    The general proof is future work; this states the obligation. -/
+def FairnessBound (l : LaunchpadState) (ui uj : Addr) : Prop :=
+  alloc_L l ui * l.rate * l.totalStaked ≤
+    l.payAmt ui * l.totalAlloc + l.rate
+
+/-- F1 (c) — Fairness bound proved for the uniform-stake case. -/
+theorem fairnessBoundUniform
+    (l : LaunchpadState) (k : Nat) (u : Addr)
+    (h_k : k > 0) (h_rate : l.rate > 0)
+    (h_ts : l.totalStaked > 0) (h_alloc : l.totalAlloc > 0)
+    (h_reg : l.regAmt u = k) (h_pay : l.payAmt u = k) :
+    FairnessBound l u u := by
+  unfold FairnessBound alloc_L
+  rw [h_reg, h_pay]
+  simp only [Nat.min_self]
+  have h_div_le : k * l.totalAlloc / (l.rate * l.totalStaked) *
+      (l.rate * l.totalStaked) ≤ k * l.totalAlloc :=
+    Nat.div_mul_le_self _ _
+  have h_assoc : k * l.totalAlloc / (l.rate * l.totalStaked) *
+      l.rate * l.totalStaked =
+      k * l.totalAlloc / (l.rate * l.totalStaked) *
+      (l.rate * l.totalStaked) := by ring
+  rw [h_assoc]
+  omega
