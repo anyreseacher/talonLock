@@ -1,0 +1,302 @@
+module ctf::launchpad {
+    use iota::transfer::{Receiving};
+    use iota::coin::{Self, Coin};
+    use iota::balance::{Self, Balance};
+    use ctf::vesting::{
+        Self,
+        create_strategy_not_for_coin,
+        create_and_initialize_vester_with_allocations
+    };
+    use iota::dynamic_field as df;
+    use iota::clock::{Self, Clock};
+    use iota::table::{Self, Table};
+
+    public struct AmountTo has store {
+        user: address,
+        amount: u64,
+    }
+
+    public struct TimeFrame has copy, drop, store {
+        time: u64,
+        percentage: u8,
+    }
+
+    public struct Participation has store {
+        user: address,
+        amount: u64,
+        amount_paid: u64,
+        amount_to_send: u64
+    }
+
+    public struct Launchpad<phantom StakedToken, phantom TokenToPay> has key, store {
+        id: UID,
+        raised_token: Balance<TokenToPay>,
+        conversion_rate_token: u8,
+        total_staked: u64,
+        start_time: u64,
+        end_time: u64,
+        total_allocation: u64,
+        administrator: address,
+        recipient_after_launch: address,
+        time_frame_claim_raised_amount: vector<TimeFrame>,
+        participants: Table<address, Participation>,
+        participant_addresses: vector<address>,
+        is_active: bool,
+        vesting_contract: Option<ID>,
+    }
+
+    const ERROR_LAUNCHPAD_NOT_ACTIVE: u64 = 1;
+    const ERROR_ALREADY_PARTICIPATED: u64 = 2;
+    const ERROR_INSUFFICIENT_FUNDS: u64 = 3;
+    const ERROR_LAUNCHPAD_CLOSED: u64 = 4;
+    const ERROR_NOT_ADMIN: u64 = 5;
+    const ERROR_NOT_REGISTERED: u64 = 6;
+    const ERROR_INVALID_TIME_FRAME_PARAMETERS: u64 = 7;
+    const ERROR_ALREADY_DEPLOYED: u64 = 8;
+
+    public entry fun create_launchpad<StakedToken, TokenToPay>(
+        conversion_rate_token: u8,
+        total_allocation: u64,
+        start_time: u64,
+        end_time: u64,
+        recipient_after_launch: address,
+        times: vector<u64>,
+        percentages: vector<u8>,
+        ctx: &mut TxContext
+    ) {
+        let admin = tx_context::sender(ctx);
+        assert!(
+            vector::length(&times) == vector::length(&percentages),
+            ERROR_INVALID_TIME_FRAME_PARAMETERS
+        );
+
+        let mut time_frame_claim_raised_amount: vector<TimeFrame> = vector::empty();
+        let len = vector::length(&times);
+        let mut i = 0;
+        while (i < len) {
+            let time = *vector::borrow(&times, i);
+            let percentage = *vector::borrow(&percentages, i);
+            vector::push_back(
+                &mut time_frame_claim_raised_amount,
+                TimeFrame { time, percentage }
+            );
+            i = i + 1;
+        };
+
+        let launchpad = Launchpad<StakedToken, TokenToPay> {
+            id: object::new(ctx),
+            raised_token: balance::zero<TokenToPay>(),
+            conversion_rate_token,
+            total_staked: 0,
+            start_time,
+            end_time,
+            total_allocation,
+            administrator: admin,
+            recipient_after_launch,
+            time_frame_claim_raised_amount,
+            participants: table::new<address, Participation>(ctx),
+            participant_addresses: vector::empty<address>(),
+            is_active: true,
+            vesting_contract: option::none(),
+        };
+
+        transfer::share_object(launchpad);
+    }
+
+    public fun register_launchpad<StakedToken, TokenToPay>(
+        launchpad: &mut Launchpad<StakedToken, TokenToPay>,
+        having_amount: Coin<StakedToken>,
+        a_clock: &Clock,
+        ctx: &mut TxContext
+    ): Coin<StakedToken> {
+        let sender = tx_context::sender(ctx);
+
+        assert!(launchpad.is_active, ERROR_LAUNCHPAD_NOT_ACTIVE);
+        let current_time = clock::timestamp_ms(a_clock);
+        assert!(
+            current_time >= launchpad.start_time && current_time <= launchpad.end_time,
+            ERROR_LAUNCHPAD_NOT_ACTIVE
+        );
+
+        assert!(
+            !table::contains(&launchpad.participants, sender),
+            ERROR_ALREADY_PARTICIPATED
+        );
+
+        let staked_value = coin::value(&having_amount);
+        assert!(staked_value > 0, ERROR_INSUFFICIENT_FUNDS);
+
+        table::add(
+            &mut launchpad.participants,
+            sender,
+            Participation {
+                user: sender,
+                amount: staked_value,
+                amount_paid: 0,
+                amount_to_send: 0
+            }
+        );
+        vector::push_back(&mut launchpad.participant_addresses, sender);
+
+        launchpad.total_staked = launchpad.total_staked + staked_value;
+        having_amount
+    }
+
+    public entry fun participate_in_launchpad<StakedToken, TokenToPay>(
+        launchpad: &mut Launchpad<StakedToken, TokenToPay>,
+        token_to_pay: Receiving<Coin<TokenToPay>>,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+
+        assert!(launchpad.is_active, ERROR_LAUNCHPAD_NOT_ACTIVE);
+        assert!(table::contains(&launchpad.participants, sender), ERROR_NOT_REGISTERED);
+
+        let participant = table::borrow_mut(&mut launchpad.participants, sender);
+        assert!(participant.amount_paid == 0, ERROR_ALREADY_PARTICIPATED);
+
+        let user_registered_amount = participant.amount;
+        let mut received_tokens = transfer::public_receive(&mut launchpad.id, token_to_pay);
+        let received_value = coin::value(&received_tokens);
+        assert!(received_value > 0, ERROR_INSUFFICIENT_FUNDS);
+
+        let mut amount_paid = received_value;
+        if (received_value > user_registered_amount) {
+            let extra_amount = received_value - user_registered_amount;
+            let extra_tokens = coin::split(&mut received_tokens, extra_amount, ctx);
+            transfer::public_transfer(extra_tokens, sender);
+            amount_paid = user_registered_amount;
+        };
+
+        participant.amount_paid = amount_paid;
+        balance::join(&mut launchpad.raised_token, coin::into_balance(received_tokens));
+    }
+
+    public entry fun close_launchpad<StakedToken, TokenToPay>(
+        launchpad: &mut Launchpad<StakedToken, TokenToPay>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let admin = tx_context::sender(ctx);
+        let current_time = clock::timestamp_ms(clock);
+
+        assert!(admin == launchpad.administrator, ERROR_NOT_ADMIN);
+        assert!(launchpad.is_active && launchpad.end_time <= current_time, ERROR_LAUNCHPAD_CLOSED);
+
+        launchpad.is_active = false;
+
+        let n = vector::length(&launchpad.participant_addresses);
+        let mut i = 0;
+        while (i < n) {
+            let addr = *vector::borrow(&launchpad.participant_addresses, i);
+            let p = table::borrow_mut(&mut launchpad.participants, addr);
+
+            if (p.amount_paid > 0) {
+                let user_share =
+                    (p.amount * launchpad.total_allocation) / launchpad.total_staked;
+                p.amount_to_send = user_share;
+            } else {
+                p.amount_to_send = 0;
+            };
+
+            i = i + 1;
+        };
+
+        df::add(&mut launchpad.id, b"alredy_claimed", AmountTo {
+            user: launchpad.recipient_after_launch,
+            amount: 0
+        });
+    }
+
+    public entry fun claim_raised_tokens<StakedToken, TokenToPay>(
+        launchpad: &mut Launchpad<StakedToken, TokenToPay>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let recipient = tx_context::sender(ctx);
+        assert!(recipient == launchpad.recipient_after_launch, ERROR_NOT_ADMIN);
+
+        let amountTo: &mut AmountTo = df::borrow_mut(&mut launchpad.id, b"alredy_claimed");
+        let claimed_amount = amountTo.amount;
+        let current_time = clock::timestamp_ms(clock);
+
+        let mut total_claimable: u64 = 0;
+        let time_frames = &launchpad.time_frame_claim_raised_amount;
+        let raised_amount = balance::value(&launchpad.raised_token);
+        let num_frames = vector::length(time_frames);
+        let mut i = 0;
+
+        while (i < num_frames) {
+            let frame = vector::borrow(time_frames, i);
+            if (current_time >= frame.time) {
+                let claimable_in_frame = (frame.percentage as u64 * raised_amount) / 100;
+                total_claimable = total_claimable + claimable_in_frame;
+            } else {
+                break
+            };
+            i = i + 1;
+        };
+
+        assert!(
+            total_claimable > claimed_amount
+                && balance::value(&launchpad.raised_token) >= total_claimable - claimed_amount,
+            ERROR_INSUFFICIENT_FUNDS
+        );
+
+        let mut claimable_tokens_balance =
+            balance::split(&mut launchpad.raised_token, total_claimable - claimed_amount);
+        let claimable_tokens =
+            coin::take(&mut claimable_tokens_balance, total_claimable - claimed_amount, ctx);
+
+        amountTo.amount = total_claimable;
+        transfer::public_transfer(claimable_tokens, recipient);
+        balance::destroy_zero(claimable_tokens_balance);
+    }
+
+    public entry fun create_the_vesting<StakedToken, TokenToPay, ClaimToken>(
+        launchpad: &mut Launchpad<StakedToken, TokenToPay>,
+        start_time: u64,
+        duration_seconds: u64,
+        receving_token: Receiving<Coin<ClaimToken>>,
+        ctx: &mut TxContext
+    ) {
+        let admin = tx_context::sender(ctx);
+
+        assert!(admin == launchpad.administrator, ERROR_NOT_ADMIN);
+        assert!(!launchpad.is_active, ERROR_LAUNCHPAD_NOT_ACTIVE);
+        assert!(option::is_none(&launchpad.vesting_contract), ERROR_ALREADY_DEPLOYED);
+
+        let strategy = create_strategy_not_for_coin(2, 0, ctx);
+        let coin_to_vest =
+            transfer::public_receive<Coin<ClaimToken>>(&mut launchpad.id, receving_token);
+
+        let n = vector::length(&launchpad.participant_addresses);
+        let mut users: vector<address> = vector::empty();
+        let mut amounts: vector<u64> = vector::empty();
+        let mut i = 0;
+
+        while (i < n) {
+            let addr = *vector::borrow(&launchpad.participant_addresses, i);
+            let p = table::borrow(&launchpad.participants, addr);
+            if (p.amount_to_send > 0) {
+                vector::push_back(&mut users, addr);
+                vector::push_back(&mut amounts, p.amount_to_send);
+            };
+            i = i + 1;
+        };
+
+        let id = create_and_initialize_vester_with_allocations<ClaimToken>(
+            start_time,
+            strategy,
+            option::some(duration_seconds),
+            option::none(),
+            option::none(),
+            coin_to_vest,
+            users,
+            amounts,
+            ctx
+        );
+
+        launchpad.vesting_contract = option::some(id);
+    }
+}

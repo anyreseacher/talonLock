@@ -1,0 +1,110 @@
+IOTA framework revision:
+73ba3c698cf3d73728d3bf386a22f451695a91d1
+
+Prototype build: success
+Hardened build: success
+
+Admin:
+0xd0e7976a242007d7ce49087578e46f93ae9b5bbfd8288240c39691905a5572b3
+
+Recipient-after-launch:
+0xc88991c2b3527e991d44037217c7ae7b1391e188ea3e4cd374bc9d4641d4f095
+
+Participants:
+0xa19ba4a2598e28364bc0cf9de05f0aa3764477f3d27e6171d6f5792727219136
+0xba4286fa7ba173ab846432de233ecf1bebd028f88995c2486d75a058beca1674
+0x68adc08f890cca19df9f89a9f14b9ffac621164e035426c37a7fb117c43c01ba
+…
+
+
+Hardened package publish:
+Package ID:
+0xd0dd09b2ba2185099bba3b9fac09a3daa4e5b2d8409685c841d2ba0582b39958
+
+Transaction Digest:
+2B7QHzTtLjPFCCQ5LHSzyPD1ZvZhNeAXEwGKfGJGeAps
+
+TestCoin MintCoin object:
+0x096d18dafb2ae665448da3510ae5cba8df4ff068218c3f917f115042e14b5c06
+
+ExampleCoin MintCoin object:
+0x85a6e73516b63cf16ebcefb028e00b09edc7fa415ced41b1b1d9a403dacc9a9b
+
+UpgradeCap:
+0x6380a988e15c3da4e89a01eaa90f6d2276a72a57b02e856d5bca6743882a0937
+
+
+
+Created Objects:
+ObjectID: 0x6f2c72e57bf1186becabc92b1aaf77333fcb186b3424bb057a4154dec8437bf9
+Mutated Objects:
+ObjectID: 0x2b76416d56c4556a178a7da4f8de78441f1fdf7154077ae739047a8d46106528
+ObjectID: 0x85a6e73516b63cf16ebcefb028e00b09edc7fa415ced41b1b1d9a403dacc9a9b
+
+
+Hardened package ID:
+0xd0dd09b2ba2185099bba3b9fac09a3daa4e5b2d8409685c841d2ba0582b39958
+
+Hardened TestCoin MintCoin:
+0x096d18dafb2ae665448da3510ae5cba8df4ff068218c3f917f115042e14b5c06
+
+Hardened ExampleCoin MintCoin:
+0x85a6e73516b63cf16ebcefb028e00b09edc7fa415ced41b1b1d9a403dacc9a9b
+
+First hardened ExampleCoin object:
+0x6f2c72e57bf1186becabc92b1aaf77333fcb186b3424bb057a4154dec8437bf9
+balance = 1000
+
+
+Strategy 1:
+0xfce0007084f22f1d8ae2727a72b325eaf33eabe004898ee898c6ab7356afcd87
+
+Strategy 3:
+0xde4dba4d6d28ec12f84a2ee45a2ceaef1686c508faf2502f09156a3c180d9ac4
+
+
+
+
+
+
+
+---------------------------------------------------------------------------------
+
+Hardened package
+Package ID: 0xd0dd09b2ba2185099bba3b9fac09a3daa4e5b2d8409685c841d2ba0582b39958
+ExampleCoin MintCoin: 0x85a6e73516b63cf16ebcefb028e00b09edc7fa415ced41b1b1d9a403dacc9a9b
+TestCoin MintCoin: 0x096d18dafb2ae665448da3510ae5cba8df4ff068218c3f917f115042e14b5c06
+Minted ExampleCoin object: 0x6f2c72e57bf1186becabc92b1aaf77333fcb186b3424bb057a4154dec8437bf9
+Strategy 1 object: 0xfce0007084f22f1d8ae2727a72b325eaf33eabe004898ee898c6ab7356afcd87
+Strategy 3 object: 0xde4dba4d6d28ec12f84a2ee45a2ceaef1686c508faf2502f09156a3c180d9ac4
+
+Prototype package
+Package ID: 0xa8eb64e54b25470fdeb5e06b8569f68dc2b61e7737d73a6940fe1073dd917b98
+ExampleCoin MintCoin: 0x36d540c16b191249493d40aa39ff91ee5fb42c7dcc3916aa403fe4ad625b8b52
+TestCoin MintCoin: 0xc5ac559dd0871a74fa7b96193582b485e295bd249451eb4058f3616cb11cb0ce
+Minted prototype ExampleCoin object: 0x39f1149e9a3b5b5ec59867258386114afdb9054d293289f11f9d8c0076b5da33
+Minted prototype TestCoin object: 0x44df59dd7faf52d8a96e088c19dcb6d8c5926843a4ef1581062a3e3dcb1ff4f2
+
+***********************************************************************************
+
+Hardened manual vesting test:
+Fresh supply coin:
+0xbd4ef818507479a6b82b58500b40312ca7d02cb6a65245ca8524fef75579c14f
+
+Fresh Strategy 1:
+0xcf8238b8fc368e2608181c5aba6abeeb1a038e3199da35e031ef5d2004278554
+
+Vesting object:
+0x31095f6c58e3127bd9e47981bcde976680899b4d66948a5c34295652341e6277
+
+
+
+
+
+Real hardened vesting object:
+0x32b5d474a5f2b90023fb88ec8c20fb360a3dd4a6985c7800bc8d61ffde9095dd
+
+
+
+
+
